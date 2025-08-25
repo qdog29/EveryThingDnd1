@@ -17,10 +17,22 @@ struct DiceEngineTests {
         #expect(result.rolls == [3,4])
     }
 
-    @Test func abilityCheck() async throws {
+    @Test func checkAppliesProficiency() async throws {
         var rng = FixedRNG(numbers: [10])
         let character = Character(str: 16, level: 5)
-        let result = DiceEngine.abilityCheck(for: .str, character: character, proficiency: .proficient, advantage: .normal, rng: &rng)
+        character.setProficiency(.proficient, for: .athletics)
+        let result = DiceEngine.check(type: .skill(.athletics), character: character, rng: &rng)
         #expect(result.total == 10 + 3 + character.proficiencyBonus)
+        #expect(result.proficient)
+        #expect(!result.expertise)
+    }
+
+    @Test func checkAppliesExpertise() async throws {
+        var rng = FixedRNG(numbers: [5])
+        let character = Character(dex: 14, level: 5)
+        character.setProficiency(.expertise, for: .stealth)
+        let result = DiceEngine.check(type: .skill(.stealth), character: character, rng: &rng)
+        #expect(result.total == 5 + 2 + character.proficiencyBonus * 2)
+        #expect(result.expertise)
     }
 }

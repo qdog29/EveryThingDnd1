@@ -6,10 +6,13 @@ struct RollResult {
     var formula: String
 }
 
-enum AdvantageState {
-    case normal
-    case advantage
-    case disadvantage
+struct CheckRollResult {
+    var d20: Int
+    var abilityMod: Int
+    var proficiencyBonus: Int
+    var proficient: Bool
+    var expertise: Bool
+    var total: Int
 }
 
 struct DiceEngine {
@@ -17,25 +20,33 @@ struct DiceEngine {
         Int.random(in: 1...sides, using: &rng)
     }
 
-    static func abilityCheck(for ability: Ability, character: Character, proficiency: ProficiencyLevel, advantage: AdvantageState = .normal, rng: inout some RandomNumberGenerator) -> RollResult {
-        var rolls: [Int] = []
-        let first = rollDie(20, rng: &rng)
-        rolls.append(first)
-        var selected = first
-        if advantage != .normal {
-            let second = rollDie(20, rng: &rng)
-            rolls.append(second)
-            selected = advantage == .advantage ? max(first, second) : min(first, second)
+    static func check(type: CheckType, character: Character, rng: inout some RandomNumberGenerator) -> CheckRollResult {
+        let d20 = rollDie(20, rng: &rng)
+        let ability: Ability
+        let level: ProficiencyLevel
+        switch type {
+        case .ability(let a):
+            ability = a
+            level = character.abilityProficiency(for: a)
+        case .skill(let s):
+            ability = s.ability
+            level = character.proficiency(for: s)
         }
         let abilityMod = modifier(for: ability, character: character)
-        let profBonus: Int
-        switch proficiency {
-        case .none: profBonus = 0
-        case .proficient: profBonus = character.proficiencyBonus
-        case .expertise: profBonus = character.proficiencyBonus * 2
+        let pb = character.proficiencyBonus
+        let proficient = level != .none
+        let expertise = level == .expertise
+        let profComponent = proficiencyComponent(level: level, pb: pb)
+        let total = d20 + abilityMod + profComponent
+        return CheckRollResult(d20: d20, abilityMod: abilityMod, proficiencyBonus: pb, proficient: proficient, expertise: expertise, total: total)
+    }
+
+    private static func proficiencyComponent(level: ProficiencyLevel, pb: Int) -> Int {
+        switch level {
+        case .none: return 0
+        case .proficient: return pb
+        case .expertise: return pb * 2
         }
-        let total = selected + abilityMod + profBonus
-        return RollResult(rolls: rolls, total: total, formula: "1d20 + mods")
     }
 
     static func roll(expression: String, character: Character? = nil, critical: Bool = false, rng: inout some RandomNumberGenerator) -> RollResult {

@@ -2,30 +2,18 @@ import SwiftUI
 
 struct RollsView: View {
     var character: Character?
-    @State private var ability: Ability = .str
-    @State private var proficiency: ProficiencyLevel = .none
-    @State private var advantage: AdvantageState = .normal
+    @State private var check: CheckType = .ability(.str)
     @State private var damageExpression: String = "1d6"
     @State private var critical: Bool = false
     @State private var resultText: String = ""
 
     var body: some View {
         Form {
-            Section("Checks & Saves") {
-                Picker("Ability", selection: $ability) {
-                    ForEach(Ability.allCases) { ability in
-                        Text(ability.title).tag(ability)
+            Section("Check") {
+                Picker("Check Type", selection: $check) {
+                    ForEach(CheckType.allCases, id: \.self) { ct in
+                        Text(ct.title).tag(ct)
                     }
-                }
-                Picker("Proficiency", selection: $proficiency) {
-                    Text("None").tag(ProficiencyLevel.none)
-                    Text("Proficient").tag(ProficiencyLevel.proficient)
-                    Text("Expertise").tag(ProficiencyLevel.expertise)
-                }
-                Picker("Advantage", selection: $advantage) {
-                    Text("Normal").tag(AdvantageState.normal)
-                    Text("Advantage").tag(AdvantageState.advantage)
-                    Text("Disadvantage").tag(AdvantageState.disadvantage)
                 }
                 Button("Roll") { rollCheck() }
             }
@@ -46,8 +34,14 @@ struct RollsView: View {
     private func rollCheck() {
         guard let character else { resultText = "Select a character first"; return }
         var rng = SystemRandomNumberGenerator()
-        let result = DiceEngine.abilityCheck(for: ability, character: character, proficiency: proficiency, advantage: advantage, rng: &rng)
-        resultText = "Rolls: \(result.rolls) Total: \(result.total)"
+        let result = DiceEngine.check(type: check, character: character, rng: &rng)
+        var parts: [String] = ["d20: \(result.d20)", "ability: \(result.abilityMod)"]
+        if result.expertise {
+            parts.append("expertise: \(result.proficiencyBonus * 2)")
+        } else if result.proficient {
+            parts.append("proficiency: \(result.proficiencyBonus)")
+        }
+        resultText = parts.joined(separator: " + ") + " = \(result.total)"
     }
 
     private func rollDamage() {

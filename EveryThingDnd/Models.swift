@@ -51,6 +51,30 @@ enum Skill: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+/// Represents either an ability or a skill for performing checks
+enum CheckType: Hashable, Identifiable {
+    case ability(Ability)
+    case skill(Skill)
+
+    var id: String {
+        switch self {
+        case .ability(let ability): return "ability-\(ability.rawValue)"
+        case .skill(let skill): return "skill-\(skill.rawValue)"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .ability(let ability): return ability.title
+        case .skill(let skill): return skill.title
+        }
+    }
+
+    static var allCases: [CheckType] {
+        Ability.allCases.map { .ability($0) } + Skill.allCases.map { .skill($0) }
+    }
+}
+
 // MARK: - Model objects
 
 @Model
@@ -66,6 +90,27 @@ final class SkillEntry {
     var skill: Skill {
         get { Skill(rawValue: skillRaw) ?? .athletics }
         set { skillRaw = newValue.rawValue }
+    }
+
+    var level: ProficiencyLevel {
+        get { ProficiencyLevel(rawValue: levelRaw) ?? .none }
+        set { levelRaw = newValue.rawValue }
+    }
+}
+
+@Model
+final class AbilityEntry {
+    var abilityRaw: String
+    var levelRaw: Int
+
+    init(ability: Ability, level: ProficiencyLevel = .none) {
+        self.abilityRaw = ability.rawValue
+        self.levelRaw = level.rawValue
+    }
+
+    var ability: Ability {
+        get { Ability(rawValue: abilityRaw) ?? .str }
+        set { abilityRaw = newValue.rawValue }
     }
 
     var level: ProficiencyLevel {
@@ -166,6 +211,7 @@ final class Character {
 
     // Relationships
     @Relationship(deleteRule: .cascade) var skills: [SkillEntry] = []
+    @Relationship(deleteRule: .cascade) var abilityFlags: [AbilityEntry] = []
     @Relationship(deleteRule: .cascade) var attacks: [Attack] = []
     @Relationship(deleteRule: .cascade) var inventory: [InventoryItem] = []
     @Relationship(deleteRule: .cascade) var rollLogs: [RollLog] = []
@@ -252,6 +298,26 @@ final class Character {
         skills.first(where: { $0.skill == skill })?.level ?? .none
     }
 
+    func setProficiency(_ level: ProficiencyLevel, for skill: Skill) {
+        if let entry = skills.first(where: { $0.skill == skill }) {
+            entry.level = level
+        } else {
+            skills.append(SkillEntry(skill: skill, level: level))
+        }
+    }
+
+    func abilityProficiency(for ability: Ability) -> ProficiencyLevel {
+        abilityFlags.first(where: { $0.ability == ability })?.level ?? .none
+    }
+
+    func setAbilityProficiency(_ level: ProficiencyLevel, for ability: Ability) {
+        if let entry = abilityFlags.first(where: { $0.ability == ability }) {
+            entry.level = level
+        } else {
+            abilityFlags.append(AbilityEntry(ability: ability, level: level))
+        }
+    }
+
     var passivePerception: Int {
         let prof = proficiency(for: .perception)
         let bonus = prof == .none ? 0 : proficiencyBonus * (prof == .expertise ? 2 : 1)
@@ -263,7 +329,7 @@ final class Character {
 
 enum DnDSchemaV1: VersionedSchema {
     static var models: [any PersistentModel.Type] {
-        [Character.self, Attack.self, InventoryItem.self, SkillEntry.self, RollLog.self]
+        [Character.self, Attack.self, InventoryItem.self, SkillEntry.self, AbilityEntry.self, RollLog.self]
     }
     static var versionIdentifier = Schema.Version(1, 0, 0)
 }

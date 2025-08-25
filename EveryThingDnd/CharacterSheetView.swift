@@ -3,17 +3,12 @@ import SwiftData
 
 struct CharacterSheetView: View {
     @Bindable var character: Character
-    @AppStorage("layoutStyle") private var layoutStyle: String = "2014"
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                if layoutStyle == "2014" {
-                    abilitiesAndSkills2014
-                } else {
-                    abilitiesAndSkills2024
-                }
+                abilitiesAndSkills
                 combatSection
                 featuresSection
             }
@@ -33,16 +28,7 @@ struct CharacterSheetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var abilitiesAndSkills2014: some View {
-        Grid(alignment: .topLeading, horizontalSpacing: 16, verticalSpacing: 16) {
-            GridRow {
-                abilitiesColumn
-                skillsColumn
-            }
-        }
-    }
-
-    private var abilitiesAndSkills2024: some View {
+    private var abilitiesAndSkills: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Ability.allCases) { ability in
                 VStack(alignment: .leading) {
@@ -57,32 +43,23 @@ struct CharacterSheetView: View {
         }
     }
 
-    private var abilitiesColumn: some View {
-        VStack(alignment: .leading) {
-            ForEach(Ability.allCases) { ability in
-                abilityBlock(for: ability)
-            }
-        }
-    }
-
-    private var skillsColumn: some View {
-        VStack(alignment: .leading) {
-            ForEach(Skill.allCases, id: \.self) { skill in
-                skillRow(skill)
-            }
-        }
-    }
-
     private func abilityBlock(for ability: Ability) -> some View {
-        let score = score(for: ability)
         let mod = modifier(for: ability)
         return VStack {
             Text(ability.title)
                 .font(.headline)
-            Text("\(score)")
+            TextField("", value: scoreBinding(for: ability), formatter: NumberFormatter())
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
                 .font(.title)
             Text(mod >= 0 ? "+\(mod)" : "\(mod)")
                 .font(.subheadline)
+            Picker("Proficiency", selection: abilityProfBinding(for: ability)) {
+                Text("None").tag(ProficiencyLevel.none)
+                Text("Proficient").tag(ProficiencyLevel.proficient)
+                Text("Expertise").tag(ProficiencyLevel.expertise)
+            }
+            .pickerStyle(.segmented)
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -90,11 +67,17 @@ struct CharacterSheetView: View {
     }
 
     private func skillRow(_ skill: Skill) -> some View {
-        let level = character.proficiency(for: skill)
+        let binding = skillBinding(for: skill)
+        let level = binding.wrappedValue
         let mod = modifier(for: skill.ability)
         let profBonus = level == .none ? 0 : character.proficiencyBonus * (level == .expertise ? 2 : 1)
         return HStack {
-            if level != .none { Image(systemName: level == .expertise ? "checkmark.seal.fill" : "checkmark") }
+            Picker("", selection: binding) {
+                Text("None").tag(ProficiencyLevel.none)
+                Text("Proficient").tag(ProficiencyLevel.proficient)
+                Text("Expertise").tag(ProficiencyLevel.expertise)
+            }
+            .pickerStyle(.menu)
             Text(skill.title)
             Spacer()
             Text(String(mod + profBonus))
@@ -130,14 +113,14 @@ struct CharacterSheetView: View {
     }
 
     // MARK: - Helpers
-    private func score(for ability: Ability) -> Int {
+    private func scoreBinding(for ability: Ability) -> Binding<Int> {
         switch ability {
-        case .str: return character.str
-        case .dex: return character.dex
-        case .con: return character.con
-        case .int: return character.intScore
-        case .wis: return character.wis
-        case .cha: return character.cha
+        case .str: return $character.str
+        case .dex: return $character.dex
+        case .con: return $character.con
+        case .int: return $character.intScore
+        case .wis: return $character.wis
+        case .cha: return $character.cha
         }
     }
 
@@ -150,6 +133,16 @@ struct CharacterSheetView: View {
         case .wis: return character.wisMod
         case .cha: return character.chaMod
         }
+    }
+
+    private func abilityProfBinding(for ability: Ability) -> Binding<ProficiencyLevel> {
+        Binding(get: { character.abilityProficiency(for: ability) },
+                set: { character.setAbilityProficiency($0, for: ability) })
+    }
+
+    private func skillBinding(for skill: Skill) -> Binding<ProficiencyLevel> {
+        Binding(get: { character.proficiency(for: skill) },
+                set: { character.setProficiency($0, for: skill) })
     }
 }
 
