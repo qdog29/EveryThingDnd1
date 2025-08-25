@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RollsView: View {
-    var character: Character?
+    var character: Character
     @State private var check: CheckType = .ability(.str)
     @State private var damageExpression: String = "1d6"
     @State private var critical: Bool = false
@@ -32,7 +32,6 @@ struct RollsView: View {
     }
 
     private func rollCheck() {
-        guard let character else { resultText = "Select a character first"; return }
         var rng = SystemRandomNumberGenerator()
         let result = DiceEngine.check(type: check, character: character, rng: &rng)
         var parts: [String] = ["d20: \(result.d20)", "ability: \(result.abilityMod)"]

@@ -13,77 +13,57 @@ struct ContentView: View {
     @Query(sort: \Character.name) private var characters: [Character]
     @SceneStorage("selectedCharacterName") private var selectedCharacterName: String?
 
-    @State private var selection: SidebarItem?
-
-    enum SidebarItem: Hashable {
-        case character(Character)
-        case rolls
-        case settings
-    }
+    @State private var selection: Character?
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Section("Characters") {
-                    ForEach(characters) { character in
-                        NavigationLink(value: SidebarItem.character(character)) {
-                            Text(character.name)
+                ForEach(characters) { character in
+                    HStack {
+                        Text(character.name)
+                        Spacer()
+                        if selection?.id == character.id {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.accentColor)
                         }
                     }
-                    .onDelete(perform: deleteCharacters)
-                    Button(action: addCharacter) {
-                        Label("New Character", systemImage: "plus")
-                    }
+                    .tag(character as Character?)
                 }
-                Section {
-                    NavigationLink(value: SidebarItem.rolls) {
-                        Label("Rolls", systemImage: "dice")
-                    }
-                    NavigationLink(value: SidebarItem.settings) {
-                        Label("Settings", systemImage: "gear")
-                    }
+                .onDelete(perform: deleteCharacters)
+                Button(action: addCharacter) {
+                    Label("New Character", systemImage: "plus")
                 }
             }
         } detail: {
-            switch selection {
-            case .character(let character):
-                CharacterSheetView(character: character)
-            case .rolls:
-                RollsView(character: selectedCharacter)
-            case .settings:
-                SettingsView()
-            default:
+            if let character = selection {
+                TabView {
+                    CharacterSheetView(character: character)
+                        .tabItem { Label("Sheet", systemImage: "person.text.rectangle") }
+                    RollsView(character: character)
+                        .tabItem { Label("Roll", systemImage: "dice") }
+                    SettingsView()
+                        .tabItem { Label("Settings", systemImage: "gear") }
+                }
+            } else {
                 Text("Select a character")
             }
         }
         .onChange(of: selection) { oldValue, newValue in
-            if case .character(let c) = newValue {
-                selectedCharacterName = c.name
-            }
+            selectedCharacterName = newValue?.name
         }
         .onAppear {
             if let stored = selectedCharacterName,
                let existing = characters.first(where: { $0.name == stored }) {
-                selection = .character(existing)
+                selection = existing
             }
         }
-    }
-
-    private var selectedCharacter: Character? {
-        if case .character(let c) = selection {
-            return c
-        }
-        if let name = selectedCharacterName {
-            return characters.first(where: { $0.name == name })
-        }
-        return nil
     }
 
     private func addCharacter() {
         withAnimation {
             let newCharacter = Character()
             modelContext.insert(newCharacter)
-            selection = .character(newCharacter)
+            selection = newCharacter
         }
     }
 
