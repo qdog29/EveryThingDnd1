@@ -10,46 +10,87 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Query(sort: \Character.name) private var characters: [Character]
+    @SceneStorage("selectedCharacterName") private var selectedCharacterName: String?
+
+    @State private var selection: SidebarItem?
+
+    enum SidebarItem: Hashable {
+        case character(Character)
+        case rolls
+        case settings
+    }
 
     var body: some View {
         NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+            List(selection: $selection) {
+                Section("Characters") {
+                    ForEach(characters) { character in
+                        NavigationLink(value: SidebarItem.character(character)) {
+                            Text(character.name)
+                        }
+                    }
+                    .onDelete(perform: deleteCharacters)
+                    Button(action: addCharacter) {
+                        Label("New Character", systemImage: "plus")
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                Section {
+                    NavigationLink(value: SidebarItem.rolls) {
+                        Label("Rolls", systemImage: "dice")
+                    }
+                    NavigationLink(value: SidebarItem.settings) {
+                        Label("Settings", systemImage: "gear")
                     }
                 }
             }
         } detail: {
-            Text("Select an item")
+            switch selection {
+            case .character(let character):
+                CharacterSheetView(character: character)
+            case .rolls:
+                RollsView(character: selectedCharacter)
+            case .settings:
+                SettingsView()
+            default:
+                Text("Select a character")
+            }
+        }
+        .onChange(of: selection) { newValue in
+            if case .character(let c) = newValue {
+                selectedCharacterName = c.name
+            }
+        }
+        .onAppear {
+            if let stored = selectedCharacterName,
+               let existing = characters.first(where: { $0.name == stored }) {
+                selection = .character(existing)
+            }
         }
     }
 
-    private func addItem() {
+    private var selectedCharacter: Character? {
+        if case .character(let c) = selection {
+            return c
+        }
+        if let name = selectedCharacterName {
+            return characters.first(where: { $0.name == name })
+        }
+        return nil
+    }
+
+    private func addCharacter() {
         withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+            let newCharacter = Character()
+            modelContext.insert(newCharacter)
+            selection = .character(newCharacter)
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteCharacters(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(items[index])
+                modelContext.delete(characters[index])
             }
         }
     }
@@ -57,5 +98,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: DnDSchema.self, inMemory: true)
 }
