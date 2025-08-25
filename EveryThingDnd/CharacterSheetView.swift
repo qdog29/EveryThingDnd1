@@ -156,6 +156,9 @@ struct CharacterSheetView: View {
 #Preview {
     let character = Character(name: "Aragorn", className: "Ranger", level: 5)
     character.skills = Skill.allCases.map { SkillEntry(skill: $0) }
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Character.self, configurations: config)
+    
     return CharacterSheetView(character: character)
-        .modelContainer(for: DnDSchema.self, inMemory: true)
+        .modelContainer(container)
 }

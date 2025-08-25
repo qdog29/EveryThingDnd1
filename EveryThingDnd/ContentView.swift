@@ -56,7 +56,7 @@ struct ContentView: View {
                 Text("Select a character")
             }
         }
-        .onChange(of: selection) { newValue in
+        .onChange(of: selection) { oldValue, newValue in
             if case .character(let c) = newValue {
                 selectedCharacterName = c.name
             }
@@ -97,6 +97,8 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
-        .modelContainer(for: DnDSchema.self, inMemory: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Character.self, configurations: config)
+    return ContentView()
+        .modelContainer(container)
 }
